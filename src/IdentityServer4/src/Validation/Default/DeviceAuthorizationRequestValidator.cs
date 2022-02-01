@@ -12,6 +12,7 @@ using IdentityServer4.Configuration;
 using IdentityServer4.Extensions;
 using IdentityServer4.Logging;
 using IdentityServer4.Models;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Logging;
 
 namespace IdentityServer4.Validation

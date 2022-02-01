@@ -9,10 +9,12 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
 using IdentityServer4.Configuration;
+using Newtonsoft.Json;
 
 namespace IdentityServer4.Extensions
 {
@@ -34,26 +36,20 @@ namespace IdentityServer4.Extensions
         public static JwtPayload CreateJwtPayload(this Token token, ISystemClock clock, IdentityServerOptions options, ILogger logger)
         {
             var payload = new JwtPayload(
-                token.Issuer,
-                null,
-                null,
-                clock.UtcNow.UtcDateTime,
-                clock.UtcNow.UtcDateTime.AddSeconds(token.Lifetime));
+               token.Issuer,
+               null,
+               null,
+               clock.UtcNow.UtcDateTime,
+               clock.UtcNow.UtcDateTime.AddSeconds(token.Lifetime));
 
             foreach (var aud in token.Audiences)
             {
                 payload.AddClaim(new Claim(JwtClaimTypes.Audience, aud));
             }
 
-            var amrClaims = token.Claims.Where(x => x.Type == JwtClaimTypes.AuthenticationMethod).ToArray();
-            var scopeClaims = token.Claims.Where(x => x.Type == JwtClaimTypes.Scope).ToArray();
-            var jsonClaims = token.Claims.Where(x => x.ValueType == IdentityServerConstants.ClaimValueTypes.Json).ToList();
-            
-            // add confirmation claim if present (it's JSON valued)
-            if (token.Confirmation.IsPresent())
-            {
-                jsonClaims.Add(new Claim(JwtClaimTypes.Confirmation, token.Confirmation, IdentityServerConstants.ClaimValueTypes.Json));
-            }
+            var amrClaims = token.Claims.Where(x => x.Type == JwtClaimTypes.AuthenticationMethod);
+            var scopeClaims = token.Claims.Where(x => x.Type == JwtClaimTypes.Scope);
+            var jsonClaims = token.Claims.Where(x => x.ValueType == IdentityServerConstants.ClaimValueTypes.Json);
 
             var normalClaims = token.Claims
                 .Except(amrClaims)
@@ -83,7 +79,7 @@ namespace IdentityServer4.Extensions
                 var amrValues = amrClaims.Select(x => x.Value).Distinct().ToArray();
                 payload.Add(JwtClaimTypes.AuthenticationMethod, amrValues);
             }
-            
+
             // deal with json types
             // calling ToArray() to trigger JSON parsing once and so later 
             // collection identity comparisons work for the anonymous type
@@ -93,22 +89,49 @@ namespace IdentityServer4.Extensions
 
                 var jsonObjects = jsonTokens.Where(x => x.JsonValue.Type == JTokenType.Object).ToArray();
                 var jsonObjectGroups = jsonObjects.GroupBy(x => x.Type).ToArray();
+
+                if (token.Confirmation != null)
+                {
+                    var cnf = JsonConvert.DeserializeObject<Dictionary<string, object>>(token.Confirmation);
+                    if (cnf.ContainsKey("x5t#S256"))
+                    {
+                        payload.Add("cnf", cnf);
+                    }
+                }
                 foreach (var group in jsonObjectGroups)
                 {
                     if (payload.ContainsKey(group.Key))
                     {
-                        throw new Exception($"Can't add two claims where one is a JSON object and the other is not a JSON object ({group.Key})");
+                        throw new Exception(string.Format("Can't add two claims where one is a JSON object and the other is not a JSON object ({0})", group.Key));
                     }
-
-                    if (group.Skip(1).Any())
+                    if (!group.Key.Equals("events"))
                     {
-                        // add as array
-                        payload.Add(group.Key, group.Select(x => x.JsonValue).ToArray());
+                        if (group.Skip(1).Any())
+                        {
+                            // add as array
+                            payload.Add(group.Key, group.Select(x => x.JsonValue).ToArray());
+                        }
+                        else
+                        {
+                            Dictionary<string, object> properties = new Dictionary<string, object>();
+                            // add just one
+                            var value = group.First().JsonValue["x5t#S256"].ToString();
+                            properties.Add("x5t#S256", value);
+                            payload.Add(group.Key, properties);
+                        }
                     }
                     else
                     {
-                        // add just one
-                        payload.Add(group.Key, group.First().JsonValue);
+                        if (group.Skip(1).Any())
+                        {
+                            // add as array
+                            payload.Add(group.Key, group.Select(x => x.JsonValue).ToArray());
+                        }
+                        else
+                        {
+                            // add just one
+                            payload.Add(group.Key, group.First().JsonValue);
+                        }
                     }
                 }
 
@@ -118,14 +141,13 @@ namespace IdentityServer4.Extensions
                 {
                     if (payload.ContainsKey(group.Key))
                     {
-                        throw new Exception(
-                            $"Can't add two claims where one is a JSON array and the other is not a JSON array ({group.Key})");
+                        throw new Exception(string.Format("Can't add two claims where one is a JSON array and the other is not a JSON array ({0})", group.Key));
                     }
 
                     var newArr = new List<JToken>();
                     foreach (var arrays in group)
                     {
-                        var arr = (JArray)arrays.JsonValue;
+                        var arr = (JArray) arrays.JsonValue;
                         newArr.AddRange(arr);
                     }
 
@@ -133,12 +155,11 @@ namespace IdentityServer4.Extensions
                     payload.Add(group.Key, newArr.ToArray());
                 }
 
-                var unsupportedJsonTokens = jsonTokens.Except(jsonObjects).Except(jsonArrays).ToArray();
-                var unsupportedJsonClaimTypes = unsupportedJsonTokens.Select(x => x.Type).Distinct().ToArray();
+                var unsupportedJsonTokens = jsonTokens.Except(jsonObjects).Except(jsonArrays);
+                var unsupportedJsonClaimTypes = unsupportedJsonTokens.Select(x => x.Type).Distinct();
                 if (unsupportedJsonClaimTypes.Any())
                 {
-                    throw new Exception(
-                        $"Unsupported JSON type for claim types: {unsupportedJsonClaimTypes.Aggregate((x, y) => x + ", " + y)}");
+                    throw new Exception(string.Format("Unsupported JSON type for claim types: {0}", unsupportedJsonClaimTypes.Aggregate((x, y) => x + ", " + y)));
                 }
 
                 return payload;

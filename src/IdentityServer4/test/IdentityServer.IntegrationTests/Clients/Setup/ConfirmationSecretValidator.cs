@@ -15,7 +15,7 @@ namespace IdentityServer.IntegrationTests.Clients.Setup
             {
                 if (secrets.First().Type == "confirmation.test")
                 {
-                    var cnf = new Dictionary<string, string>
+                    Dictionary<string, object> cnf = new Dictionary<string, object>
                     {
                         { "x5t#S256", "foo" }
                     };

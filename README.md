@@ -1,3 +1,9 @@
+# This is IdentityServer Fork
+
+This is fork of IdentityServer4 adding .NET 6 as targed and updated to latest packages.
+
+All credits for base repository goes to [Dominick Baier](https://twitter.com/leastprivilege) and [Brock Allen](https://twitter.com/brocklallen).
+
 # Important update
 This organization is not maintained anymore besides critical security bugfixes (if feasible). This organization will be archived when .NET Core 3.1 end of support is reached (3rd Dec 2022). All new development is happening in the new [Duende Software](https://github.com/duendesoftware) organization. 
 

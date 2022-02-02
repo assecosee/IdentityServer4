@@ -60,10 +60,4 @@
     <PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="$(EntityFrameworkVersion)" PrivateAssets="All" />
 
   </ItemGroup>
-
-  <Target Name="SetAssemblyVersion">
-    <PropertyGroup>
-      <AssemblyVersion>$(MinVerMajor).$(MinVerMinor).$(MinVerPatch).0</AssemblyVersion>
-    </PropertyGroup>
-  </Target>
 </Project>

@@ -10,6 +10,7 @@ namespace build
     {
         private const string packOutput = "./artifacts";
         private const string packOutputCopy = "../../nuget";
+        private const string versionFile = "../../.version";
         private const string envVarMissing = " environment variable is missing. Aborting.";
 
         private static class Targets
@@ -57,8 +58,12 @@ namespace build
             Target(Targets.Pack, DependsOn(Targets.Build, Targets.CleanPackOutput), () =>
             {
                 var project = Directory.GetFiles("./src", "*.csproj", SearchOption.TopDirectoryOnly).OrderBy(_ => _).First();
-
-                Run("dotnet", $"pack {project} -c Release -o \"{Directory.CreateDirectory(packOutput).FullName}\" --no-build --nologo", echoPrefix: Prefix);
+				if(File.Exists(versionFile)) {
+					string contentVersion = File.ReadAllText(versionFile).Replace("\r\n", "").Replace("\n", "").Replace("\r", "");
+					Run("dotnet", $"pack {project} -c Release -p:PackageVersion=" + contentVersion + " -o \"{Directory.CreateDirectory(packOutput).FullName}\" --no-build --nologo", echoPrefix: Prefix);
+				} else {
+					Run("dotnet", $"pack {project} -c Release -o \"{Directory.CreateDirectory(packOutput).FullName}\" --no-build --nologo", echoPrefix: Prefix);
+				}
             });
 
             Target(Targets.SignPackage, DependsOn(Targets.Pack), () =>

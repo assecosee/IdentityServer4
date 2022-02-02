@@ -27,7 +27,7 @@ steps:
   inputs:
     image: 'mcr.microsoft.com/dotnet/sdk:6.0'
     commands: |
-      sh build.sh
+      bash build.sh
       rm -rf NuGet.Config
 
 - task: DockerAdvanced@0

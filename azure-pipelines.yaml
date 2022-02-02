@@ -23,7 +23,7 @@ steps:
       RELEASE=false
 
 - task: DockerAdvanced@0
-  displayName: 'COMMIT_test'
+  displayName: 'COMMIT_build'
   inputs:
     image: 'mcr.microsoft.com/dotnet/sdk:6.0'
     commands: |

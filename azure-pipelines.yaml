@@ -1,0 +1,54 @@
+variables:
+- group: common
+
+pool: 'Digital'
+
+resources:
+  repositories:
+    - repository: templates
+      type: githubenterprise
+      name: asseco-see/pipeline-templates
+      ref: refs/heads/main
+      endpoint: github
+
+steps:
+- task: DockerAdvanced@0
+  displayName: 'COMMIT_generate_version'
+  inputs:
+    image: 'registry.see.asseco.com/tools/image-tagger'
+    dockerRegistryEndpoint: harbor
+    envVars: |
+      TAGGER_VERSION=v2
+      GITHUB_TOKEN=$(githubToken)
+      RELEASE=false
+
+- task: DockerAdvanced@0
+  displayName: 'COMMIT_test'
+  inputs:
+    image: 'mcr.microsoft.com/dotnet/sdk:6.0'
+    commands: |
+      sh build.sh
+      rm -rf NuGet.Config
+
+- task: DockerAdvanced@0
+  displayName: 'COMMIT_publish_nuget'
+  inputs:
+    image: 'mcr.microsoft.com/dotnet/sdk:6.0'
+    secureFile: nuget.config
+    commands: |
+      dotnet nuget push nuget/*.nupkg --source "Asseco Digital Platform" --skip-duplicate -k vsts || :
+
+- task: DockerAdvanced@0
+  displayName: 'COMMIT_release_version'
+  inputs:
+    image: 'registry.see.asseco.com/tools/image-tagger'
+    dockerRegistryEndpoint: harbor
+    envVars: |
+      TAGGER_VERSION=v2
+      GITHUB_TOKEN=$(githubToken)
+      NUGET_ARTIFACTS=IndentityServer4:Microservice Kit
+      RELEASED_VERSION_API_URL=$(releasedVersionApiUrl)
+      PUBLIC_DEVOPS_SERVER_URL=$(publicDevOpsServerUrl)
+      PUBLIC_DEVOPS_PAT=$(publicDevOpsKey)
+
+- template: create-cd-artifacts.yml@templates

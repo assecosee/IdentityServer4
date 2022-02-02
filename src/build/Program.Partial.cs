@@ -60,7 +60,7 @@ namespace build
                 var project = Directory.GetFiles("./src", "*.csproj", SearchOption.TopDirectoryOnly).OrderBy(_ => _).First();
 				if(File.Exists(versionFile)) {
 					string contentVersion = File.ReadAllText(versionFile).Replace("\r\n", "").Replace("\n", "").Replace("\r", "");
-					Run("dotnet", $"pack {project} -c Release -p:PackageVersion=" + contentVersion + " -o \"{Directory.CreateDirectory(packOutput).FullName}\" --no-build --nologo", echoPrefix: Prefix);
+					Run("dotnet", $"pack {project} -c Release -p:PackageVersion={contentVersion}  -o \"{Directory.CreateDirectory(packOutput).FullName}\" --no-build --nologo", echoPrefix: Prefix);
 				} else {
 					Run("dotnet", $"pack {project} -c Release -o \"{Directory.CreateDirectory(packOutput).FullName}\" --no-build --nologo", echoPrefix: Prefix);
 				}
